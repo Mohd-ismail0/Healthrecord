@@ -1,0 +1,41 @@
+{
+  "name": "@healthtrack/mobile",
+  "version": "1.0.0",
+  "description": "HealthTrack Mobile App (React Native + Expo)",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "test": "jest",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "@healthtrack/api-client": "*",
+    "@healthtrack/schemas": "*",
+    "@healthtrack/ui-kit": "*",
+    "expo": "~49.0.0",
+    "expo-camera": "~13.4.0",
+    "expo-document-picker": "~11.5.0",
+    "expo-file-system": "~15.4.0",
+    "expo-local-authentication": "~13.4.0",
+    "expo-status-bar": "~1.6.0",
+    "react": "18.2.0",
+    "react-native": "0.72.6",
+    "react-native-paper": "^5.11.0",
+    "react-native-safe-area-context": "4.6.3",
+    "react-native-screens": "~3.22.0",
+    "@react-navigation/native": "^6.1.9",
+    "@react-navigation/bottom-tabs": "^6.5.11",
+    "@react-navigation/native-stack": "^6.9.17",
+    "@tanstack/react-query": "^5.8.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@types/react": "~18.2.14",
+    "@types/react-native": "~0.72.2",
+    "jest": "^29.2.1",
+    "typescript": "^5.1.3"
+  }
+}

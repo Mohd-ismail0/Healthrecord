@@ -1,0 +1,12 @@
+node_modules
+dist
+build
+coverage
+.next
+.expo
+.expo-shared
+cdk.out
+*.lock
+*.log
+package-lock.json
+yarn.lock

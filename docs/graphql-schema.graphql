@@ -1,0 +1,401 @@
+# HealthTrack GraphQL Schema
+
+"""
+ISO 8601 Date scalar
+"""
+scalar Date
+
+"""
+ISO 8601 DateTime scalar
+"""
+scalar DateTime
+
+"""
+JSON scalar for dynamic data
+"""
+scalar JSON
+
+# ===== Enums =====
+
+enum RecordType {
+  LAB_REPORT
+  COURSE
+}
+
+enum RecordSource {
+  MANUAL
+  OCR
+  API
+}
+
+enum CourseStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum Interpretation {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+# ===== Types =====
+
+"""
+Unified health record
+"""
+type Record {
+  recordId: ID!
+  userId: String!
+  recordType: RecordType!
+  source: RecordSource!
+  verified: Boolean!
+  version: Int!
+  data: JSON!
+  mcpContextURI: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+Medication course
+"""
+type Course {
+  courseId: ID!
+  userId: String!
+  medicine: String!
+  dosage: String!
+  frequency: String
+  startDate: Date!
+  endDate: Date!
+  doctor: String!
+  doctorSpecialty: String
+  status: CourseStatus!
+  daysRemaining: Int
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+Lab report test result
+"""
+type LabTest {
+  testId: ID!
+  recordId: ID!
+  testName: String!
+  value: Float!
+  unit: String!
+  referenceRange: String
+  testDate: Date!
+  labName: String
+  interpretation: Interpretation
+  previousValue: Float
+  changePercent: Float
+}
+
+"""
+Lab report with multiple tests
+"""
+type LabReport {
+  reportId: ID!
+  userId: String!
+  reportDate: Date!
+  labName: String!
+  tests: [LabTest!]!
+  source: RecordSource!
+  verified: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+Upload URL response
+"""
+type UploadUrl {
+  uploadUrl: String!
+  s3Key: String!
+  expiresIn: Int!
+}
+
+"""
+Parse result
+"""
+type ParseResult {
+  parseId: ID!
+  extractedData: JSON!
+  confidence: Float!
+  requiresVerification: Boolean!
+  recordType: RecordType!
+}
+
+"""
+MCP Context
+"""
+type McpContext {
+  context: String!
+  type: String!
+  userId: String!
+  recordId: String!
+  entities: JSON!
+  provenance: Provenance!
+}
+
+"""
+Data provenance
+"""
+type Provenance {
+  verifiedBy: String!
+  source: String!
+  version: Int!
+  recordURI: String!
+}
+
+"""
+Paginated records list
+"""
+type RecordsConnection {
+  records: [Record!]!
+  total: Int!
+  hasMore: Boolean!
+  cursor: String
+}
+
+"""
+User profile
+"""
+type User {
+  userId: ID!
+  email: String!
+  name: String
+  phoneNumber: String
+  dateOfBirth: Date
+  createdAt: DateTime!
+  lastLogin: DateTime
+}
+
+# ===== Input Types =====
+
+"""
+Manual entry input
+"""
+input ManualEntryInput {
+  recordType: RecordType!
+  data: JSON!
+}
+
+"""
+Verify parsed data input
+"""
+input VerifyInput {
+  parseId: ID!
+  data: JSON!
+  corrections: [CorrectionInput!]
+}
+
+"""
+Field correction input
+"""
+input CorrectionInput {
+  field: String!
+  originalValue: String!
+  correctedValue: String!
+}
+
+"""
+Lab report data input
+"""
+input LabReportInput {
+  testName: String!
+  value: Float!
+  unit: String!
+  referenceRange: String
+  testDate: Date!
+  labName: String
+  interpretation: Interpretation
+}
+
+"""
+Prescription/Course input
+"""
+input PrescriptionInput {
+  medicine: String!
+  dosage: String!
+  frequency: String
+  startDate: Date!
+  endDate: Date!
+  doctor: String!
+  doctorSpecialty: String
+  instructions: String
+}
+
+"""
+Update course status input
+"""
+input UpdateCourseInput {
+  courseId: ID!
+  status: CourseStatus
+  notes: String
+}
+
+"""
+Records filter input
+"""
+input RecordsFilterInput {
+  recordType: RecordType
+  source: RecordSource
+  verified: Boolean
+  startDate: Date
+  endDate: Date
+}
+
+# ===== Queries =====
+
+type Query {
+  """
+  Get current user profile
+  """
+  me: User!
+
+  """
+  Get all records for authenticated user
+  """
+  records(
+    filter: RecordsFilterInput
+    limit: Int = 50
+    cursor: String
+  ): RecordsConnection!
+
+  """
+  Get specific record by ID
+  """
+  record(recordId: ID!): Record
+
+  """
+  Get active medication courses
+  """
+  activeCourses: [Course!]!
+
+  """
+  Get past (completed/paused) courses
+  """
+  pastCourses: [Course!]!
+
+  """
+  Get specific course by ID
+  """
+  course(courseId: ID!): Course
+
+  """
+  Get all lab reports
+  """
+  labReports(
+    startDate: Date
+    endDate: Date
+    limit: Int = 50
+  ): [LabReport!]!
+
+  """
+  Get specific lab report
+  """
+  labReport(reportId: ID!): LabReport
+
+  """
+  Get lab test history for specific test
+  """
+  testHistory(testName: String!): [LabTest!]!
+
+  """
+  Get MCP context for AI agents
+  """
+  mcpContext(recordId: ID!): McpContext
+
+  """
+  Search records by text
+  """
+  searchRecords(query: String!, limit: Int = 20): [Record!]!
+}
+
+# ===== Mutations =====
+
+type Mutation {
+  """
+  Request upload URL for file
+  """
+  requestUploadUrl(
+    fileName: String!
+    fileType: String!
+  ): UploadUrl!
+
+  """
+  Parse uploaded document
+  """
+  parseDocument(
+    s3Key: String!
+    recordType: RecordType!
+  ): ParseResult!
+
+  """
+  Create manual entry
+  """
+  createManualEntry(input: ManualEntryInput!): Record!
+
+  """
+  Verify and save parsed data
+  """
+  verifyRecord(input: VerifyInput!): Record!
+
+  """
+  Create lab report (partner API)
+  """
+  createLabReport(
+    reportDate: Date!
+    labName: String!
+    tests: [LabReportInput!]!
+  ): LabReport!
+
+  """
+  Create prescription/course (partner API)
+  """
+  createPrescription(input: PrescriptionInput!): Course!
+
+  """
+  Update course status
+  """
+  updateCourse(input: UpdateCourseInput!): Course!
+
+  """
+  Delete record
+  """
+  deleteRecord(recordId: ID!): Boolean!
+
+  """
+  Update user profile
+  """
+  updateProfile(
+    name: String
+    phoneNumber: String
+    dateOfBirth: Date
+  ): User!
+}
+
+# ===== Subscriptions =====
+
+type Subscription {
+  """
+  Subscribe to record updates
+  """
+  recordUpdated(userId: ID!): Record!
+
+  """
+  Subscribe to course status changes
+  """
+  courseStatusChanged(userId: ID!): Course!
+
+  """
+  Subscribe to parse completion
+  """
+  parseCompleted(parseId: ID!): ParseResult!
+}
