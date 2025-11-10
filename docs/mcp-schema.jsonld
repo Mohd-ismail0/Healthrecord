@@ -1,0 +1,247 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "@vocab": "https://mcp.healthtrack.io/schema/v1#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "schema": "http://schema.org/",
+    "hl7": "http://hl7.org/fhir/",
+    
+    "HealthRecord": {
+      "@id": "schema:MedicalRecord",
+      "@type": "@id"
+    },
+    
+    "LabReportContext": {
+      "@id": "LabReportContext",
+      "@type": "@id"
+    },
+    
+    "PrescriptionContext": {
+      "@id": "PrescriptionContext",
+      "@type": "@id"
+    },
+    
+    "userId": {
+      "@id": "schema:identifier",
+      "@type": "xsd:string"
+    },
+    
+    "recordId": {
+      "@id": "schema:identifier",
+      "@type": "xsd:string"
+    },
+    
+    "recordURI": {
+      "@id": "schema:url",
+      "@type": "@id"
+    },
+    
+    "testName": {
+      "@id": "schema:name",
+      "@type": "xsd:string"
+    },
+    
+    "currentValue": {
+      "@id": "hl7:Observation.value",
+      "@type": "xsd:decimal"
+    },
+    
+    "previousValue": {
+      "@id": "previousValue",
+      "@type": "xsd:decimal"
+    },
+    
+    "unit": {
+      "@id": "schema:unitCode",
+      "@type": "xsd:string"
+    },
+    
+    "changePercent": {
+      "@id": "changePercent",
+      "@type": "xsd:decimal"
+    },
+    
+    "interpretation": {
+      "@id": "hl7:Observation.interpretation",
+      "@type": "xsd:string"
+    },
+    
+    "testDate": {
+      "@id": "schema:dateCreated",
+      "@type": "xsd:date"
+    },
+    
+    "medicine": {
+      "@id": "schema:drug",
+      "@type": "xsd:string"
+    },
+    
+    "dosage": {
+      "@id": "hl7:Dosage.doseAndRate",
+      "@type": "xsd:string"
+    },
+    
+    "frequency": {
+      "@id": "hl7:Dosage.timing",
+      "@type": "xsd:string"
+    },
+    
+    "startDate": {
+      "@id": "schema:startDate",
+      "@type": "xsd:date"
+    },
+    
+    "endDate": {
+      "@id": "schema:endDate",
+      "@type": "xsd:date"
+    },
+    
+    "doctor": {
+      "@id": "schema:prescriber",
+      "@type": "xsd:string"
+    },
+    
+    "status": {
+      "@id": "hl7:MedicationRequest.status",
+      "@type": "xsd:string"
+    },
+    
+    "verifiedBy": {
+      "@id": "schema:contributor",
+      "@type": "xsd:string"
+    },
+    
+    "source": {
+      "@id": "schema:source",
+      "@type": "xsd:string"
+    },
+    
+    "version": {
+      "@id": "schema:version",
+      "@type": "xsd:integer"
+    },
+    
+    "timestamp": {
+      "@id": "schema:dateModified",
+      "@type": "xsd:dateTime"
+    }
+  },
+  
+  "@graph": [
+    {
+      "@id": "LabReportContext",
+      "@type": "schema:StructuredValue",
+      "schema:name": "Lab Report Context",
+      "schema:description": "MCP context for laboratory test results",
+      "schema:additionalType": "https://mcp.healthtrack.io/schema/v1#LabReportContext",
+      "schema:propertyValue": [
+        {
+          "@type": "schema:PropertyValue",
+          "schema:name": "userId",
+          "schema:valueReference": "xsd:string",
+          "schema:description": "Unique identifier for the patient"
+        },
+        {
+          "@type": "schema:PropertyValue",
+          "schema:name": "recordId",
+          "schema:valueReference": "xsd:string",
+          "schema:description": "Unique identifier for the lab report"
+        },
+        {
+          "@type": "schema:PropertyValue",
+          "schema:name": "entities",
+          "schema:valueReference": "schema:StructuredValue",
+          "schema:description": "Extracted lab test entities and values"
+        },
+        {
+          "@type": "schema:PropertyValue",
+          "schema:name": "provenance",
+          "schema:valueReference": "schema:StructuredValue",
+          "schema:description": "Data provenance and verification information"
+        }
+      ]
+    },
+    
+    {
+      "@id": "PrescriptionContext",
+      "@type": "schema:StructuredValue",
+      "schema:name": "Prescription Context",
+      "schema:description": "MCP context for medication prescriptions",
+      "schema:additionalType": "https://mcp.healthtrack.io/schema/v1#PrescriptionContext",
+      "schema:propertyValue": [
+        {
+          "@type": "schema:PropertyValue",
+          "schema:name": "userId",
+          "schema:valueReference": "xsd:string"
+        },
+        {
+          "@type": "schema:PropertyValue",
+          "schema:name": "recordId",
+          "schema:valueReference": "xsd:string"
+        },
+        {
+          "@type": "schema:PropertyValue",
+          "schema:name": "medicationCourse",
+          "schema:valueReference": "schema:StructuredValue",
+          "schema:description": "Medication course details"
+        },
+        {
+          "@type": "schema:PropertyValue",
+          "schema:name": "provenance",
+          "schema:valueReference": "schema:StructuredValue"
+        }
+      ]
+    }
+  ],
+  
+  "examples": [
+    {
+      "@context": "https://mcp.healthtrack.io/schema/v1",
+      "@type": "LabReportContext",
+      "userId": "U123",
+      "recordId": "LR456",
+      "entities": {
+        "testName": "Hemoglobin",
+        "currentValue": 13.5,
+        "previousValue": 12.9,
+        "unit": "g/dL",
+        "changePercent": 4.65,
+        "interpretation": "normal",
+        "testDate": "2025-11-10",
+        "referenceRange": "12.0-16.0"
+      },
+      "provenance": {
+        "verifiedBy": "User",
+        "source": "OCR + Manual Verification",
+        "version": 2,
+        "recordURI": "https://api.healthtrack.io/v1/records/LR456",
+        "timestamp": "2025-11-10T08:00:00Z"
+      }
+    },
+    
+    {
+      "@context": "https://mcp.healthtrack.io/schema/v1",
+      "@type": "PrescriptionContext",
+      "userId": "U123",
+      "recordId": "RX789",
+      "medicationCourse": {
+        "medicine": "Amoxicillin 500 mg",
+        "dosage": "1 tablet",
+        "frequency": "twice daily",
+        "startDate": "2025-11-05",
+        "endDate": "2025-11-12",
+        "doctor": "Dr. A. Kumar",
+        "doctorSpecialty": "General Medicine",
+        "status": "active",
+        "daysRemaining": 2
+      },
+      "provenance": {
+        "verifiedBy": "System",
+        "source": "API Integration",
+        "version": 1,
+        "recordURI": "https://api.healthtrack.io/v1/records/RX789",
+        "timestamp": "2025-11-05T10:30:00Z"
+      }
+    }
+  ]
+}

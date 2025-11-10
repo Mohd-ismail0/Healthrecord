@@ -1,0 +1,30 @@
+{
+  "name": "@healthtrack/api-client",
+  "version": "1.0.0",
+  "description": "Type-safe API client for HealthTrack REST and GraphQL APIs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@healthtrack/schemas": "*",
+    "axios": "^1.6.0",
+    "@apollo/client": "^3.8.0",
+    "graphql": "^16.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.2.0"
+  }
+}

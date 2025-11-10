@@ -1,0 +1,663 @@
+openapi: 3.0.3
+info:
+  title: HealthTrack API
+  version: 1.0.0
+  description: |
+    Unified healthcare record system API enabling users to upload, parse, verify, 
+    or manually enter prescriptions & lab reports.
+  contact:
+    name: HealthTrack Team
+    email: api@healthtrack.io
+
+servers:
+  - url: https://api.healthtrack.io/v1
+    description: Production API
+  - url: https://api-dev.healthtrack.io/v1
+    description: Development API
+
+security:
+  - BearerAuth: []
+
+paths:
+  /upload:
+    post:
+      summary: Get S3 upload URL
+      description: Returns a pre-signed S3 URL for uploading files
+      operationId: getUploadUrl
+      tags:
+        - Upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fileName
+                - fileType
+              properties:
+                fileName:
+                  type: string
+                  example: "lab-report-2025-11-10.pdf"
+                fileType:
+                  type: string
+                  example: "application/pdf"
+      responses:
+        '200':
+          description: Upload URL generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /parse:
+    post:
+      summary: Parse uploaded document
+      description: OCR parse document via AWS Textract and Comprehend Medical
+      operationId: parseDocument
+      tags:
+        - Parse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - s3Key
+                - recordType
+              properties:
+                s3Key:
+                  type: string
+                  description: S3 object key of uploaded file
+                recordType:
+                  type: string
+                  enum: [labReport, prescription]
+      responses:
+        '200':
+          description: Document parsed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /manual-entry:
+    post:
+      summary: Add manual record
+      description: Manually enter prescription or lab report data
+      operationId: createManualEntry
+      tags:
+        - Entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualEntryRequest'
+      responses:
+        '201':
+          description: Record created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /verify:
+    post:
+      summary: Verify parsed data
+      description: Confirm and optionally edit parsed data before saving
+      operationId: verifyRecord
+      tags:
+        - Verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRequest'
+      responses:
+        '200':
+          description: Record verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /lab-report:
+    post:
+      summary: Partner pushes lab data
+      description: API endpoint for lab partners to submit structured lab reports
+      operationId: createLabReport
+      tags:
+        - Partner API
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabReportData'
+      responses:
+        '201':
+          description: Lab report created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /prescription:
+    post:
+      summary: Partner pushes prescription data
+      description: API endpoint for healthcare partners to submit prescriptions
+      operationId: createPrescription
+      tags:
+        - Partner API
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionData'
+      responses:
+        '201':
+          description: Prescription created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /records:
+    get:
+      summary: List verified records
+      description: Get all verified health records for authenticated user
+      operationId: listRecords
+      tags:
+        - Records
+      parameters:
+        - name: recordType
+          in: query
+          schema:
+            type: string
+            enum: [labReport, course]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Records retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordsList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /records/{recordId}:
+    get:
+      summary: Get record details
+      description: Retrieve detailed information for a specific record
+      operationId: getRecord
+      tags:
+        - Records
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Record retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Record'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /courses/active:
+    get:
+      summary: Get active courses
+      description: List all active medication courses for the authenticated user
+      operationId: getActiveCourses
+      tags:
+        - Courses
+      responses:
+        '200':
+          description: Active courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  courses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Course'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /courses/past:
+    get:
+      summary: Get past courses
+      description: List all completed or paused medication courses
+      operationId: getPastCourses
+      tags:
+        - Courses
+      responses:
+        '200':
+          description: Past courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  courses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Course'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /context/{recordId}:
+    get:
+      summary: Get MCP context
+      description: Retrieve MCP-formatted context for AI agents
+      operationId: getMcpContext
+      tags:
+        - MCP
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: MCP context retrieved successfully
+          content:
+            application/ld+json:
+              schema:
+                $ref: '#/components/schemas/McpContext'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: AWS Cognito JWT token
+
+  schemas:
+    Record:
+      type: object
+      required:
+        - recordId
+        - userId
+        - recordType
+        - source
+        - verified
+        - data
+        - createdAt
+        - updatedAt
+      properties:
+        recordId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        userId:
+          type: string
+          example: "U123"
+        recordType:
+          type: string
+          enum: [labReport, course]
+        source:
+          type: string
+          enum: [manual, ocr, api]
+        verified:
+          type: boolean
+        version:
+          type: integer
+          default: 1
+        data:
+          type: object
+          description: Dynamic data based on recordType
+        mcpContextURI:
+          type: string
+          format: uri
+          example: "https://api.healthtrack.io/v1/context/lab-report:U123:LR456"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Course:
+      type: object
+      required:
+        - courseId
+        - medicine
+        - dosage
+        - startDate
+        - endDate
+        - doctor
+        - status
+      properties:
+        courseId:
+          type: string
+          format: uuid
+        medicine:
+          type: string
+          example: "Amoxicillin 500 mg"
+        dosage:
+          type: string
+          example: "1 tablet twice daily"
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        doctor:
+          type: string
+          example: "Dr. A. Kumar"
+        status:
+          type: string
+          enum: [active, paused, completed]
+        daysRemaining:
+          type: integer
+          description: Auto-calculated days until endDate
+        notes:
+          type: string
+
+    LabReportData:
+      type: object
+      required:
+        - testName
+        - value
+        - unit
+        - testDate
+      properties:
+        testName:
+          type: string
+          example: "Hemoglobin"
+        value:
+          type: number
+          example: 13.5
+        unit:
+          type: string
+          example: "g/dL"
+        referenceRange:
+          type: string
+          example: "12.0-16.0"
+        testDate:
+          type: string
+          format: date
+        labName:
+          type: string
+          example: "City Lab Services"
+        interpretation:
+          type: string
+          enum: [low, normal, high, critical]
+
+    PrescriptionData:
+      type: object
+      required:
+        - medicine
+        - dosage
+        - startDate
+        - endDate
+        - doctor
+      properties:
+        medicine:
+          type: string
+        dosage:
+          type: string
+        frequency:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        doctor:
+          type: string
+        doctorSpecialty:
+          type: string
+        instructions:
+          type: string
+
+    UploadUrlResponse:
+      type: object
+      properties:
+        uploadUrl:
+          type: string
+          format: uri
+          description: Pre-signed S3 URL
+        s3Key:
+          type: string
+          description: S3 object key for reference
+        expiresIn:
+          type: integer
+          description: URL expiration time in seconds
+          example: 3600
+
+    ParseResponse:
+      type: object
+      properties:
+        parseId:
+          type: string
+          format: uuid
+        extractedData:
+          type: object
+          description: Parsed data from OCR
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Confidence score of the parse
+        requiresVerification:
+          type: boolean
+
+    ManualEntryRequest:
+      type: object
+      required:
+        - recordType
+        - data
+      properties:
+        recordType:
+          type: string
+          enum: [labReport, course]
+        data:
+          type: object
+          description: Record-specific data
+
+    VerifyRequest:
+      type: object
+      required:
+        - parseId
+        - data
+      properties:
+        parseId:
+          type: string
+          format: uuid
+        data:
+          type: object
+          description: Verified/edited data
+        corrections:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              originalValue:
+                type: string
+              correctedValue:
+                type: string
+
+    RecordsList:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/Record'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    McpContext:
+      type: object
+      required:
+        - "@context"
+        - type
+        - userId
+        - recordId
+      properties:
+        "@context":
+          type: string
+          format: uri
+          example: "https://mcp.healthtrack.io/schema/v1"
+        type:
+          type: string
+          example: "LabReportContext"
+        userId:
+          type: string
+        recordId:
+          type: string
+        entities:
+          type: object
+        provenance:
+          type: object
+          properties:
+            verifiedBy:
+              type: string
+            source:
+              type: string
+            version:
+              type: integer
+            recordURI:
+              type: string
+              format: uri
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    Unauthorized:
+      description: Unauthorized - Invalid or missing JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+tags:
+  - name: Upload
+    description: File upload operations
+  - name: Parse
+    description: OCR and document parsing
+  - name: Entry
+    description: Manual data entry
+  - name: Verification
+    description: Data verification workflows
+  - name: Partner API
+    description: API endpoints for healthcare partners
+  - name: Records
+    description: Health record CRUD operations
+  - name: Courses
+    description: Medication course management
+  - name: MCP
+    description: MCP context serving for AI agents
