@@ -21,10 +21,12 @@
     "@healthtrack/schemas": "*",
     "axios": "^1.6.0",
     "@apollo/client": "^3.8.0",
-    "graphql": "^16.8.0"
+    "graphql": "^16.8.0",
+    "amazon-cognito-identity-js": "^6.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/amazon-cognito-identity-js": "^6.3.0",
     "typescript": "^5.2.0"
   }
 }

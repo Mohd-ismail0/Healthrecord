@@ -9,6 +9,7 @@ import { ComprehendMedicalClient, DetectEntitiesV2Command } from '@aws-sdk/clien
 import { v4 as uuidv4 } from 'uuid';
 import { ParseRequestSchema } from '@healthtrack/schemas';
 import { successResponse, errorResponse } from '../utils/response';
+import { putParseCache } from '../utils/dynamodb';
 
 const textractClient = new TextractClient({});
 const comprehendClient = new ComprehendMedicalClient({});
@@ -19,6 +20,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Parse and validate request body
     const body = JSON.parse(event.body || '{}');
     const validatedData = ParseRequestSchema.parse(body);
+    
+    // Extract user ID from authorizer context
+    const userId = event.requestContext.authorizer?.claims?.sub || 'anonymous';
     
     // Extract text using Textract
     const textractCommand = new AnalyzeDocumentCommand({
@@ -75,7 +79,14 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const parseId = uuidv4();
     
     // Store parse result in cache (DynamoDB) for verification
-    // TODO: Implement parse cache storage
+    await putParseCache(parseId, {
+      userId,
+      s3Key: validatedData.s3Key,
+      recordType: validatedData.recordType,
+      extractedData,
+      confidence: avgConfidence,
+      requiresVerification: avgConfidence < 0.9,
+    });
     
     return successResponse({
       parseId,

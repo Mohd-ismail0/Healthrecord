@@ -10,6 +10,7 @@ const docClient = DynamoDBDocumentClient.from(client);
 
 const RECORDS_TABLE = process.env.RECORDS_TABLE || 'healthtrack-records';
 const USERS_TABLE = process.env.USERS_TABLE || 'healthtrack-users';
+const PARSE_CACHE_TABLE = process.env.PARSE_CACHE_TABLE || 'healthtrack-parse-cache';
 
 export async function putRecord(item: any) {
   const command = new PutCommand({
@@ -74,6 +75,39 @@ export async function deleteRecord(recordId: string, userId: string) {
   const command = new DeleteCommand({
     TableName: RECORDS_TABLE,
     Key: { recordId, userId },
+  });
+  return docClient.send(command);
+}
+
+// ===== Parse Cache Functions =====
+
+export async function putParseCache(parseId: string, data: any, ttlHours = 24) {
+  const ttl = Math.floor(Date.now() / 1000) + ttlHours * 3600; // TTL in seconds
+  const command = new PutCommand({
+    TableName: PARSE_CACHE_TABLE,
+    Item: {
+      parseId,
+      ...data,
+      ttl,
+      createdAt: new Date().toISOString(),
+    },
+  });
+  return docClient.send(command);
+}
+
+export async function getParseCache(parseId: string) {
+  const command = new GetCommand({
+    TableName: PARSE_CACHE_TABLE,
+    Key: { parseId },
+  });
+  const result = await docClient.send(command);
+  return result.Item;
+}
+
+export async function deleteParseCache(parseId: string) {
+  const command = new DeleteCommand({
+    TableName: PARSE_CACHE_TABLE,
+    Key: { parseId },
   });
   return docClient.send(command);
 }

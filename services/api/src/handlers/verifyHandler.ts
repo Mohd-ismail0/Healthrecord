@@ -6,7 +6,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { v4 as uuidv4 } from 'uuid';
 import { VerifyRequestSchema } from '@healthtrack/schemas';
-import { putRecord } from '../utils/dynamodb';
+import { putRecord, getParseCache, deleteParseCache } from '../utils/dynamodb';
 import { successResponse, errorResponse } from '../utils/response';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
@@ -18,8 +18,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Extract user ID from authorizer context
     const userId = event.requestContext.authorizer?.claims?.sub || 'anonymous';
     
-    // TODO: Retrieve parse result from cache using parseId
-    // For now, we'll create a record directly from the verified data
+    // Retrieve parse result from cache using parseId
+    const parseCache = await getParseCache(validatedData.parseId);
+    
+    if (!parseCache) {
+      return errorResponse('Parse result not found or expired', 404, 'NOT_FOUND');
+    }
+    
+    // Verify the parse cache belongs to this user
+    if (parseCache.userId !== userId) {
+      return errorResponse('Unauthorized access to parse result', 403, 'FORBIDDEN');
+    }
     
     const recordId = uuidv4();
     const timestamp = new Date().toISOString();
@@ -27,7 +36,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     const record = {
       recordId,
       userId,
-      recordType: 'labReport', // Should come from parse cache
+      recordType: parseCache.recordType,
       source: 'ocr',
       verified: true,
       version: 1,
@@ -39,6 +48,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     
     // Save to DynamoDB
     await putRecord(record);
+    
+    // Delete parse cache after successful verification
+    await deleteParseCache(validatedData.parseId);
     
     return successResponse(record);
   } catch (error) {
