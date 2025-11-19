@@ -2,7 +2,13 @@
  * Authentication utilities for AWS Cognito
  */
 
-import axios from 'axios';
+import {
+  CognitoUserPool,
+  CognitoUser,
+  AuthenticationDetails,
+  CognitoUserAttribute,
+  CognitoUserSession,
+} from 'amazon-cognito-identity-js';
 
 export interface CognitoConfig {
   userPoolId: string;
@@ -31,61 +37,224 @@ export interface SignUpParams extends UserCredentials {
 export class AuthService {
   private config: CognitoConfig;
   private tokens?: AuthTokens;
+  private userPool: CognitoUserPool;
+  private currentUser: CognitoUser | null = null;
 
   constructor(config: CognitoConfig) {
     this.config = config;
+    this.userPool = new CognitoUserPool({
+      UserPoolId: config.userPoolId,
+      ClientId: config.clientId,
+    });
   }
 
   /**
    * Sign in with username and password
    */
   async signIn(credentials: UserCredentials): Promise<AuthTokens> {
-    // This is a placeholder for AWS Cognito integration
-    // In production, use AWS Amplify or AWS SDK
-    throw new Error('Not implemented - use AWS Cognito SDK');
+    return new Promise((resolve, reject) => {
+      const authenticationDetails = new AuthenticationDetails({
+        Username: credentials.username,
+        Password: credentials.password,
+      });
+
+      const cognitoUser = new CognitoUser({
+        Username: credentials.username,
+        Pool: this.userPool,
+      });
+
+      cognitoUser.authenticateUser(authenticationDetails, {
+        onSuccess: (session: CognitoUserSession) => {
+          this.currentUser = cognitoUser;
+          const tokens: AuthTokens = {
+            accessToken: session.getAccessToken().getJwtToken(),
+            idToken: session.getIdToken().getJwtToken(),
+            refreshToken: session.getRefreshToken().getToken(),
+            expiresIn: session.getAccessToken().getExpiration(),
+          };
+          this.tokens = tokens;
+          resolve(tokens);
+        },
+        onFailure: (err) => {
+          reject(err);
+        },
+        newPasswordRequired: (userAttributes, requiredAttributes) => {
+          // Handle new password required (first time login)
+          reject(new Error('New password required. Please use changePassword.'));
+        },
+      });
+    });
   }
 
   /**
    * Sign up new user
    */
   async signUp(params: SignUpParams): Promise<void> {
-    // Placeholder for Cognito sign-up
-    throw new Error('Not implemented - use AWS Cognito SDK');
+    return new Promise((resolve, reject) => {
+      const attributes: CognitoUserAttribute[] = [
+        new CognitoUserAttribute({
+          Name: 'email',
+          Value: params.email,
+        }),
+      ];
+
+      if (params.name) {
+        attributes.push(
+          new CognitoUserAttribute({
+            Name: 'name',
+            Value: params.name,
+          })
+        );
+      }
+
+      if (params.phoneNumber) {
+        attributes.push(
+          new CognitoUserAttribute({
+            Name: 'phone_number',
+            Value: params.phoneNumber,
+          })
+        );
+      }
+
+      this.userPool.signUp(
+        params.username,
+        params.password,
+        attributes,
+        [],
+        (err, result) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve();
+        }
+      );
+    });
   }
 
   /**
    * Confirm sign up with verification code
    */
   async confirmSignUp(username: string, code: string): Promise<void> {
-    throw new Error('Not implemented - use AWS Cognito SDK');
+    return new Promise((resolve, reject) => {
+      const cognitoUser = new CognitoUser({
+        Username: username,
+        Pool: this.userPool,
+      });
+
+      cognitoUser.confirmRegistration(code, true, (err, result) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
   }
 
   /**
    * Resend verification code
    */
   async resendConfirmationCode(username: string): Promise<void> {
-    throw new Error('Not implemented - use AWS Cognito SDK');
+    return new Promise((resolve, reject) => {
+      const cognitoUser = new CognitoUser({
+        Username: username,
+        Pool: this.userPool,
+      });
+
+      cognitoUser.resendConfirmationCode((err, result) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
   }
 
   /**
    * Sign out
    */
   async signOut(): Promise<void> {
-    this.tokens = undefined;
+    return new Promise((resolve) => {
+      if (this.currentUser) {
+        this.currentUser.signOut(() => {
+          this.currentUser = null;
+          this.tokens = undefined;
+          resolve();
+        });
+      } else {
+        this.tokens = undefined;
+        resolve();
+      }
+    });
   }
 
   /**
    * Refresh access token
    */
   async refreshAccessToken(refreshToken: string): Promise<AuthTokens> {
-    throw new Error('Not implemented - use AWS Cognito SDK');
+    return new Promise((resolve, reject) => {
+      if (!this.currentUser) {
+        reject(new Error('No user session'));
+        return;
+      }
+
+      this.currentUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
+        if (err || !session) {
+          // Try to refresh using refresh token
+          this.currentUser!.refreshSession(
+            {
+              getToken: () => refreshToken,
+            },
+            (refreshErr, refreshedSession) => {
+              if (refreshErr || !refreshedSession) {
+                reject(refreshErr || new Error('Failed to refresh session'));
+                return;
+              }
+              const tokens: AuthTokens = {
+                accessToken: refreshedSession.getAccessToken().getJwtToken(),
+                idToken: refreshedSession.getIdToken().getJwtToken(),
+                refreshToken: refreshedSession.getRefreshToken().getToken(),
+                expiresIn: refreshedSession.getAccessToken().getExpiration(),
+              };
+              this.tokens = tokens;
+              resolve(tokens);
+            }
+          );
+        } else {
+          const tokens: AuthTokens = {
+            accessToken: session.getAccessToken().getJwtToken(),
+            idToken: session.getIdToken().getJwtToken(),
+            refreshToken: session.getRefreshToken().getToken(),
+            expiresIn: session.getAccessToken().getExpiration(),
+          };
+          this.tokens = tokens;
+          resolve(tokens);
+        }
+      });
+    });
   }
 
   /**
    * Forgot password
    */
   async forgotPassword(username: string): Promise<void> {
-    throw new Error('Not implemented - use AWS Cognito SDK');
+    return new Promise((resolve, reject) => {
+      const cognitoUser = new CognitoUser({
+        Username: username,
+        Pool: this.userPool,
+      });
+
+      cognitoUser.forgotPassword({
+        onSuccess: () => {
+          resolve();
+        },
+        onFailure: (err) => {
+          reject(err);
+        },
+      });
+    });
   }
 
   /**
@@ -96,14 +265,95 @@ export class AuthService {
     code: string,
     newPassword: string
   ): Promise<void> {
-    throw new Error('Not implemented - use AWS Cognito SDK');
+    return new Promise((resolve, reject) => {
+      const cognitoUser = new CognitoUser({
+        Username: username,
+        Pool: this.userPool,
+      });
+
+      cognitoUser.confirmPassword(code, newPassword, {
+        onSuccess: () => {
+          resolve();
+        },
+        onFailure: (err) => {
+          reject(err);
+        },
+      });
+    });
   }
 
   /**
    * Change password
    */
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
-    throw new Error('Not implemented - use AWS Cognito SDK');
+    return new Promise((resolve, reject) => {
+      if (!this.currentUser) {
+        reject(new Error('No user session'));
+        return;
+      }
+
+      this.currentUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
+        if (err || !session) {
+          reject(err || new Error('No active session'));
+          return;
+        }
+
+        this.currentUser!.changePassword(oldPassword, newPassword, (changeErr) => {
+          if (changeErr) {
+            reject(changeErr);
+            return;
+          }
+          resolve();
+        });
+      });
+    });
+  }
+
+  /**
+   * Get current Cognito user
+   */
+  getCurrentUser(): Promise<CognitoUser | null> {
+    return new Promise((resolve) => {
+      this.userPool.getCurrentUser((err, user) => {
+        if (err || !user) {
+          resolve(null);
+          return;
+        }
+        this.currentUser = user;
+        resolve(user);
+      });
+    });
+  }
+
+  /**
+   * Check if user session is valid
+   */
+  async checkSession(): Promise<boolean> {
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) {
+        return false;
+      }
+
+      return new Promise((resolve) => {
+        user.getSession((err: Error | null, session: CognitoUserSession | null) => {
+          if (err || !session || !session.isValid()) {
+            resolve(false);
+            return;
+          }
+          // Update tokens
+          this.tokens = {
+            accessToken: session.getAccessToken().getJwtToken(),
+            idToken: session.getIdToken().getJwtToken(),
+            refreshToken: session.getRefreshToken().getToken(),
+            expiresIn: session.getAccessToken().getExpiration(),
+          };
+          resolve(true);
+        });
+      });
+    } catch {
+      return false;
+    }
   }
 
   /**

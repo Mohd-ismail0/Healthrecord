@@ -36,6 +36,15 @@ export class HealthTrackStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
+    const parseCacheTable = new dynamodb.Table(this, 'ParseCacheTable', {
+      tableName: 'healthtrack-parse-cache',
+      partitionKey: { name: 'parseId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      timeToLiveAttribute: 'ttl', // Auto-delete after 24 hours
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     // ===== S3 Buckets =====
 
     const uploadsBucket = new s3.Bucket(this, 'UploadsBucket', {
@@ -106,6 +115,7 @@ export class HealthTrackStack extends cdk.Stack {
     const lambdaEnvironment = {
       RECORDS_TABLE: recordsTable.tableName,
       USERS_TABLE: usersTable.tableName,
+      PARSE_CACHE_TABLE: parseCacheTable.tableName,
       UPLOADS_BUCKET: uploadsBucket.bucketName,
       PROCESSED_BUCKET: processedBucket.bucketName,
     };
@@ -173,6 +183,8 @@ export class HealthTrackStack extends cdk.Stack {
     recordsTable.grantReadWriteData(verifyHandler);
     recordsTable.grantReadWriteData(crudHandler);
     recordsTable.grantReadData(mcpAdapterHandler);
+    parseCacheTable.grantReadWriteData(parseHandler);
+    parseCacheTable.grantReadWriteData(verifyHandler);
 
     // Grant Textract and Comprehend Medical permissions
     parseHandler.addToRolePolicy(
